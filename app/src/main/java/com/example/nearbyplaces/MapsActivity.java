@@ -96,6 +96,7 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
                     showPlacesInUi(placeList);
                 } else { // pagination
                     fetchNearByPlaces(nextPageToken);
+                     //l
                 }
             }
         } catch (JsonSyntaxException e) {
