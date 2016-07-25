@@ -31,6 +31,7 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
                     mLocation = location;
                     Log.d(TAG, "Location ");
                     if (mLocation != null) {
+                        //log
                         fetchNearByPlaces("");
                     } else {
                         Toast.makeText(MapsActivity.this, "wait untill fetching location complete", Toast.LENGTH_SHORT).show();
