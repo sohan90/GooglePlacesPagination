@@ -83,7 +83,6 @@ public class Location {
         public void onLocationChanged(android.location.Location location) {
             mTimer.cancel();
             mLocationResult.gotLocation(location);
-            mLocationManager.removeUpdates(this);
             mLocationManager.removeUpdates(locationListenerNetwork);
         }
         public void onProviderDisabled(String provider) {
@@ -101,7 +100,6 @@ public class Location {
         public void onLocationChanged(android.location.Location location) {
             mTimer.cancel();
             mLocationResult.gotLocation(location);
-            mLocationManager.removeUpdates(this);
             mLocationManager.removeUpdates(locationListenerGps);
         }
         public void onProviderDisabled(String provider) {
