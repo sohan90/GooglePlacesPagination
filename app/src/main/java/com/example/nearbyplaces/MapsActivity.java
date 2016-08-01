@@ -1,5 +1,8 @@
 package com.example.nearbyplaces;
 
+import android.content.Context;
+import android.os.AsyncTask;
+import android.os.Environment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -11,17 +14,24 @@ import android.widget.Toast;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements NetworkAdapter.NetworkCallBack {
     private static final String NEARBY_PLACES_BASE_API = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?";
-    private static final float RADIUS = 500;
+    private static final float RADIUS = 200;
     private static final String TAG = MapsActivity.class.getSimpleName();
     private static final String OK = "OK";
+    private static final String FILE_NAME = "NearByPlaces";
     private android.location.Location mLocation;
     private List<PlaceList> mPlaceListList = new ArrayList<>();
+    private List<String> mNameList = new ArrayList<>();
 
     public Location.LocationResult locationResult = new Location.LocationResult() {
 
@@ -123,6 +133,24 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
         Log.d(TAG, "error");
     }
 
+    public class SaveFile extends AsyncTask<String, Void, String> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(String... urls) {
+
+            return "";
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+
+        }
+    }
+
     private void showPlacesInUi() {
         runOnUiThread(new Runnable() {
             @Override
@@ -134,14 +162,43 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
                         TextView textView = new TextView(MapsActivity.this);
                         textView.setText(place.getName());
                         lyt.addView(textView);
+                        mNameList.add(place.getName());
+
                     }
-                }
+                }  saveToSdCard();
 
             }
+
+
         });
 
 
     }
+
+    private void saveToSdCard() {
+        File file = new File(getAlbumStorageDir(FILE_NAME, this), FILE_NAME + ".txt");
+        PrintWriter write = null;
+        try {
+            write = new PrintWriter(new FileWriter(file));
+            for (String name : mNameList) {
+                write.println(name);
+
+            }
+            Toast.makeText(this, "File saved successfully ", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "File fail to save ", Toast.LENGTH_SHORT).show();
+        }
+        finally {
+            if (write != null) {
+                write.flush();
+                write.close();
+            }
+
+        }
+
+    }
+
 
     public static Object parseStringToObject(String response, Type type) throws JsonSyntaxException {
         Object responseObject = null;
@@ -151,4 +208,30 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     }
 
 
+    public static File getAlbumStorageDir(String albumName, Context context) {
+        File file;
+        if (hasSdCardMounted()) {
+            // Get the directory for the user's public pictures directory.
+            file  = new File(Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS), albumName);
+            if (!file.mkdirs()) {
+                Log.e("SignaturePad", "Directory not created");
+            }
+        } else { // get internal storage path
+            file  = new File(context.getFilesDir(), albumName);
+            if (!file.mkdirs()) {
+                Log.e("SignaturePad", "Internal path Directory not created");
+            }
+
+        }
+        return file;
+    }
+
+    /**
+     *
+     * @return true if it has got sdcard or false
+     */
+    private static boolean hasSdCardMounted() {
+        return Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED);
+    }
 }
