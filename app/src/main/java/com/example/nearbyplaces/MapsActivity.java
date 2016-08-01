@@ -4,6 +4,8 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -28,13 +30,16 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    mLocation = location;
-                    Log.d(TAG, "Location ");
-                    if (mLocation != null) {
-                        fetchNearByPlaces("");
-                    } else {
-                        Toast.makeText(MapsActivity.this, "wait untill fetching location complete", Toast.LENGTH_SHORT).show();
+                    if (mLocation == null) {
+                        mLocation = location;
+                        Log.d(TAG, "Location ");
+                        if (location != null) {
+                            fetchNearByPlaces("");
+                        } else {
+                            Toast.makeText(MapsActivity.this, "wait untill fetching location complete", Toast.LENGTH_SHORT).show();
+                            DialogUtils.dismissProgress();
 
+                        }
                     }
                 }
             });
@@ -46,14 +51,15 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // setContentView(R.layout.activity_maps);
+        setContentView(R.layout.activity_main);
+        DialogUtils.showProgress(this, "getting location");
+        startLocation();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        DialogUtils.showProgress(this, "getting location");
-        startLocation();
+
     }
 
     private void startLocation() {
@@ -70,6 +76,7 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
 
     private void fetchNearByPlaces(String nextPageToken) {
         String url = constructUrl(nextPageToken);
+        Log.d(TAG, "url " + url);
         NetworkAdapter.getInstance().getNearbyPlaces(url, this);
     }
 
@@ -93,10 +100,12 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
                 mPlaceListList.add(placeList);
                 final String nextPageToken = placeList.getNextPageToken();
                 if (TextUtils.isEmpty(nextPageToken)) {
-                    showPlacesInUi(placeList);
+                    Log.d(TAG, "List Size" + mPlaceListList.size());
+                    showPlacesInUi();
                 } else { // pagination
                     fetchNearByPlaces(nextPageToken);
-                     //l
+                    Log.d(TAG, "PAGINATION" + val);
+                    //l
                 }
             }
         } catch (JsonSyntaxException e) {
@@ -114,9 +123,23 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
         Log.d(TAG, "error");
     }
 
-    private void showPlacesInUi(PlaceList placeList) {
-        DialogUtils.dismissProgress();
-        Log.d(TAG, "List Size" + mPlaceListList.size());
+    private void showPlacesInUi() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                DialogUtils.dismissProgress();
+                for (PlaceList list : mPlaceListList) {
+                    for (Place place : list.getResults()) {
+                        LinearLayout lyt = (LinearLayout) findViewById(R.id.lyt_id);
+                        TextView textView = new TextView(MapsActivity.this);
+                        textView.setText(place.getName());
+                        lyt.addView(textView);
+                    }
+                }
+
+            }
+        });
+
 
     }
 
