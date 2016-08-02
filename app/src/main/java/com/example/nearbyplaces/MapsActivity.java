@@ -1,12 +1,17 @@
 package com.example.nearbyplaces;
 
-import android.content.Context;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -15,7 +20,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -23,15 +27,15 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MapsActivity extends FragmentActivity implements NetworkAdapter.NetworkCallBack {
+public class MapsActivity extends FragmentActivity implements NetworkAdapter.NetworkCallBack, View.OnClickListener {
     private static final String NEARBY_PLACES_BASE_API = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?";
-    private static final float RADIUS = 200;
     private static final String TAG = MapsActivity.class.getSimpleName();
     private static final String OK = "OK";
     private static final String FILE_NAME = "NearByPlaces";
     private android.location.Location mLocation;
-    private List<PlaceList> mPlaceListList = new ArrayList<>();
+    private List<PlaceList> mPlaceList = new ArrayList<>();
     private List<String> mNameList = new ArrayList<>();
+    private float mRadius = 0;
 
     public Location.LocationResult locationResult = new Location.LocationResult() {
 
@@ -62,8 +66,16 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        DialogUtils.showProgress(this, "getting location");
-        startLocation();
+        initUi();
+        //DialogUtils.showProgress(this, "getting location");
+        // startLocation();
+    }
+
+    private void initUi() {
+        findViewById(R.id.search).setOnClickListener(this);
+        findViewById(R.id.download).setOnClickListener(this);
+        findViewById(R.id.show).setOnClickListener(this);
+
     }
 
     @Override
@@ -85,6 +97,7 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     }
 
     private void fetchNearByPlaces(String nextPageToken) {
+        DialogUtils.showProgress(this, "getting nearby places");
         String url = constructUrl(nextPageToken);
         Log.d(TAG, "url " + url);
         NetworkAdapter.getInstance().getNearbyPlaces(url, this);
@@ -92,7 +105,7 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
 
     private String constructUrl(String nextPageToken) {
         String url = NEARBY_PLACES_BASE_API + "key=" + getString(R.string.google_maps_key) + "&" + "location="
-                + mLocation.getLatitude() + "," + mLocation.getLongitude() + "&" + "radius=" + RADIUS;
+                + mLocation.getLatitude() + "," + mLocation.getLongitude() + "&" + "radius=" + getRadius();
 
         if (!TextUtils.isEmpty(nextPageToken)) {
             url = url + "&" + "pagetoken=" + nextPageToken;
@@ -101,25 +114,33 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
 
     }
 
+    private float getRadius() {
+        return mRadius;
+    }
+
+    private void setRadius(float radius) {
+        mRadius = radius;
+    }
+
 
     @Override
     public void onSuccess(String val) {
         try {
             PlaceList placeList = (PlaceList) parseStringToObject(val, PlaceList.class);
             if (placeList.getStatus().equals(OK)) {
-                mPlaceListList.add(placeList);
+                mPlaceList.add(placeList);
                 final String nextPageToken = placeList.getNextPageToken();
                 if (TextUtils.isEmpty(nextPageToken)) {
-                    Log.d(TAG, "List Size" + mPlaceListList.size());
+                    Log.d(TAG, "List Size" + mPlaceList.size());
                     showPlacesInUi();
                 } else { // pagination
                     fetchNearByPlaces(nextPageToken);
                     Log.d(TAG, "PAGINATION" + val);
-                    //l
                 }
             }
         } catch (JsonSyntaxException e) {
             DialogUtils.dismissProgress();
+            diableDownloadButton();
             e.printStackTrace();
             Log.d(TAG, "Json Exceptions" + val);
         }
@@ -130,42 +151,102 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     @Override
     public void onFailure(String error) {
         DialogUtils.dismissProgress();
+        diableDownloadButton();
         Log.d(TAG, "error");
     }
 
-    public class SaveFile extends AsyncTask<String, Void, String> {
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.search:
+                EditText lat = (EditText) findViewById(R.id.lat);
+                EditText longi = (EditText) findViewById(R.id.longitude);
+                EditText radius = (EditText)findViewById(R.id.radius);
+                String radStr =  radius.getText().toString();
+                setRadius(Float.valueOf(radStr));
+                String latStr = lat.getText().toString();
+                String longStr = longi.getText().toString();
+
+                if (!TextUtils.isEmpty(latStr) && !TextUtils.isEmpty(longStr)) {
+                    mLocation = new android.location.Location("");
+                    mLocation.setLatitude(Double.parseDouble(lat.getText().toString()));
+                    mLocation.setLongitude(Double.parseDouble(longi.getText().toString()));
+                    mPlaceList.clear();
+                    fetchNearByPlaces(null);
+                } else {
+                    Toast.makeText(MapsActivity.this, "invalid latitude or longitude", Toast.LENGTH_SHORT).show();
+                }
+                break;
+
+            case R.id.download:
+                DialogUtils.showProgress(this, "saving file...");
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        SaveFile saveFile = new SaveFile();
+                        saveFile.execute();
+                    }
+                }, 2000);
+
+                break;
+
+            case R.id.show:
+                openSavedFile();
+
+        }
+
+    }
+
+    private void openSavedFile() {
+        viewTxtFile(new File(getAlbumStorageDir(FILE_NAME), FILE_NAME + ".txt"));
+    }
+
+    public class SaveFile extends AsyncTask<String, Void, Boolean> {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
         }
 
         @Override
-        protected String doInBackground(String... urls) {
+        protected Boolean doInBackground(String... urls) {
 
-            return "";
+            return saveToSdCard();
         }
 
         @Override
-        protected void onPostExecute(String result) {
+        protected void onPostExecute(Boolean result) {
+            DialogUtils.dismissProgress();
+            if (result) {
+                Toast.makeText(MapsActivity.this, "File saved successfully ", Toast.LENGTH_SHORT).show();
+                findViewById(R.id.show).setEnabled(true);
+            } else {
+                Toast.makeText(MapsActivity.this, "File fail to save ", Toast.LENGTH_SHORT).show();
+                findViewById(R.id.show).setEnabled(false);
+            }
 
         }
     }
 
     private void showPlacesInUi() {
+        final LinearLayout container = (LinearLayout) findViewById(R.id.lyt_id);
+        container.removeAllViews();
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 DialogUtils.dismissProgress();
-                for (PlaceList list : mPlaceListList) {
+                mNameList.clear();
+                for (PlaceList list : mPlaceList) {
                     for (Place place : list.getResults()) {
-                        LinearLayout lyt = (LinearLayout) findViewById(R.id.lyt_id);
                         TextView textView = new TextView(MapsActivity.this);
                         textView.setText(place.getName());
-                        lyt.addView(textView);
+                        container.addView(textView);
                         mNameList.add(place.getName());
 
                     }
-                }  saveToSdCard();
+                }
+                enableDownloadButton();
+
 
             }
 
@@ -175,28 +256,49 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
 
     }
 
-    private void saveToSdCard() {
-        File file = new File(getAlbumStorageDir(FILE_NAME, this), FILE_NAME + ".txt");
+    private void enableDownloadButton() {
+        findViewById(R.id.download).setEnabled(true);
+    }
+
+    private void diableDownloadButton() {
+        findViewById(R.id.download).setEnabled(false);
+    }
+
+    // Method for opening a txt file
+    private void viewTxtFile(File filePath) {
+        Uri uri = Uri.fromFile(filePath);
+        Intent txtIntent = new Intent(Intent.ACTION_VIEW);
+        txtIntent.setDataAndType(uri, "text/plain");
+        try {
+            startActivity(txtIntent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Can't read txt file", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
+    private boolean saveToSdCard() {
+        File file = new File(getAlbumStorageDir(FILE_NAME), FILE_NAME + ".txt");
         PrintWriter write = null;
+        boolean hasSaved;
         try {
             write = new PrintWriter(new FileWriter(file));
             for (String name : mNameList) {
                 write.println(name);
 
             }
-            Toast.makeText(this, "File saved successfully ", Toast.LENGTH_SHORT).show();
+            hasSaved = true;
         } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(this, "File fail to save ", Toast.LENGTH_SHORT).show();
-        }
-        finally {
+            hasSaved = false;
+        } finally {
             if (write != null) {
                 write.flush();
                 write.close();
             }
 
         }
-
+        return hasSaved;
     }
 
 
@@ -208,17 +310,17 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     }
 
 
-    public static File getAlbumStorageDir(String albumName, Context context) {
+    public File getAlbumStorageDir(String albumName) {
         File file;
         if (hasSdCardMounted()) {
             // Get the directory for the user's public pictures directory.
-            file  = new File(Environment.getExternalStoragePublicDirectory(
+            file = new File(Environment.getExternalStoragePublicDirectory(
                     Environment.DIRECTORY_DOWNLOADS), albumName);
             if (!file.mkdirs()) {
                 Log.e("SignaturePad", "Directory not created");
             }
         } else { // get internal storage path
-            file  = new File(context.getFilesDir(), albumName);
+            file = new File(getFilesDir(), albumName);
             if (!file.mkdirs()) {
                 Log.e("SignaturePad", "Internal path Directory not created");
             }
@@ -228,7 +330,6 @@ public class MapsActivity extends FragmentActivity implements NetworkAdapter.Net
     }
 
     /**
-     *
      * @return true if it has got sdcard or false
      */
     private static boolean hasSdCardMounted() {

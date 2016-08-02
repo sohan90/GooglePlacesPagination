@@ -3,6 +3,7 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:orientation="vertical">
+
     <ScrollView
         android:id="@+id/scroll_id"
         android:layout_width="match_parent"
@@ -10,10 +11,73 @@
 
 
         <LinearLayout
-            android:id="@+id/lyt_id"
+            android:id="@+id/top_content_lyt"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center"
             android:orientation="vertical">
+
+
+            <EditText
+                android:id="@+id/lat"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:hint="Enter latitude"
+                android:inputType="numberDecimal"/>
+
+
+            <EditText
+                android:id="@+id/longitude"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:hint="Enter longitude"
+                android:inputType="numberDecimal"/>
+
+
+            <EditText
+                android:id="@+id/radius"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:hint="Enter Radius"
+                android:inputType="numberDecimal"/>
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/search"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Search"/>
+
+                <Button
+                    android:id="@+id/download"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:enabled="false"
+                    android:text="Download"/>
+
+                <Button
+                    android:id="@+id/show"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:enabled="false"
+                    android:text="ShowFile"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/lyt_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical">
+
+            </LinearLayout>
+
 
         </LinearLayout>
     </ScrollView>
